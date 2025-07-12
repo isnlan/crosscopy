@@ -1,0 +1,113 @@
+[package]
+name = "crosscopy"
+version = "1.0.0"
+edition = "2021"
+authors = ["CrossCopy Team"]
+description = "A cross-platform clipboard synchronization tool"
+license = "MIT"
+repository = "https://github.com/isnlan/crosscopy-rust"
+homepage = "https://github.com/isnlan/crosscopy-rust"
+documentation = "https://docs.rs/crosscopy"
+keywords = ["clipboard", "sync", "cross-platform", "networking"]
+categories = ["command-line-utilities", "network-programming"]
+readme = "README.md"
+rust-version = "1.70.0"
+
+[[bin]]
+name = "crosscopy"
+path = "src/main.rs"
+
+[lib]
+name = "crosscopy"
+path = "src/lib.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+tokio-tungstenite = "0.21"
+futures-util = "0.3"
+
+# Clipboard access
+arboard = "3.3"
+
+# Networking
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Encryption
+aes-gcm = "0.10"
+sha2 = "0.10"
+rand = "0.8"
+pbkdf2 = "0.12"
+
+# Configuration
+confy = "0.5"
+toml = "0.8"
+dirs = "5.0"
+
+# Logging
+log = "0.4"
+env_logger = "0.10"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# System utilities
+hostname = "0.3"
+
+# Platform-specific dependencies
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "winbase"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.25"
+objc = "0.2"
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+x11 = { version = "2.21", features = ["xlib"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.8"
+criterion = "0.5"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+overflow-checks = true
+
+[[bench]]
+name = "clipboard_bench"
+harness = false
+
+[[bench]]
+name = "network_bench"
+harness = false
+
+[features]
+default = ["encryption", "compression"]
+encryption = []
+compression = ["flate2"]
+gui = ["egui", "eframe"]
+
+[dependencies.flate2]
+version = "1.0"
+optional = true
+
+[dependencies.egui]
+version = "0.24"
+optional = true
+
+[dependencies.eframe]
+version = "0.24"
+optional = true
