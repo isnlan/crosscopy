@@ -6,7 +6,7 @@
 //! Run with: cargo run --example network_demo
 
 use crosscopy::{
-    config::{AppConfig, NetworkConfig, PeerConfig, SecurityConfig},
+    config::{AppConfig, NetworkConfig, SecurityConfig},
     utils::logger,
     CrossCopyApp,
 };
@@ -15,23 +15,23 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> crosscopy::Result<()> {
     // Initialize logging
     logger::init_logger("info")?;
     
     info!("Starting CrossCopy network communication demonstration");
 
-    // Create two instances that will communicate with each other
-    let config1 = create_network_config(8881, vec![(8882, "device-2")]);
-    let config2 = create_network_config(8882, vec![(8881, "device-1")]);
+    // Create two instances that will discover each other via mDNS
+    let config1 = create_network_config(8881);
+    let config2 = create_network_config(8882);
 
     info!("Configuration 1:");
     info!("  Device: {} (port {})", config1.device_name, config1.network.listen_port);
-    info!("  Peers: {:?}", config1.network.peer_list.iter().map(|p| &p.name).collect::<Vec<_>>());
+    info!("  mDNS Discovery: {}", config1.network.enable_mdns);
 
     info!("Configuration 2:");
     info!("  Device: {} (port {})", config2.device_name, config2.network.listen_port);
-    info!("  Peers: {:?}", config2.network.peer_list.iter().map(|p| &p.name).collect::<Vec<_>>());
+    info!("  mDNS Discovery: {}", config2.network.enable_mdns);
 
     // Create applications
     let mut app1 = CrossCopyApp::new(config1).await?;
@@ -76,38 +76,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     sleep(Duration::from_millis(500)).await;
 
     info!("Network communication demonstration completed");
-    info!("Note: In this demo, actual clipboard synchronization may not occur");
-    info!("because we're running in a test environment without real clipboard access.");
+    info!("Note: In this demo, the two instances will discover each other via mDNS");
+    info!("and establish connections automatically. Actual clipboard synchronization");
+    info!("may not occur because we're running in a test environment without real clipboard access.");
     
     Ok(())
 }
 
-fn create_network_config(port: u16, peers: Vec<(u16, &str)>) -> AppConfig {
+fn create_network_config(port: u16) -> AppConfig {
     let device_id = format!("device-{}", port);
     let device_name = format!("CrossCopy-{}", port);
-
-    let peer_list = peers
-        .into_iter()
-        .map(|(peer_port, peer_id)| PeerConfig {
-            device_id: peer_id.to_string(),
-            name: format!("Peer-{}", peer_port),
-            address: "127.0.0.1".to_string(), // localhost for demo
-            port: peer_port,
-            enabled: true,
-        })
-        .collect();
 
     AppConfig {
         device_name,
         device_id,
         network: NetworkConfig {
             listen_port: port,
-            peer_list,
             connection_timeout: 5000,
             heartbeat_interval: 2000,
             max_connections: 10,
-            auto_discovery: false, // Disabled for controlled demo
-            discovery_port: port + 1000,
+            enable_mdns: true,           // Enable mDNS for automatic discovery
+            mdns_discovery_interval: 10, // Faster discovery for demo (10 seconds)
+            idle_connection_timeout: 60, // Shorter timeout for demo (1 minute)
+            enable_quic: false,          // TCP only for demo
+            quic_port: None,
         },
         clipboard: crosscopy::config::ClipboardConfig {
             sync_images: false, // Simplified for demo

@@ -14,12 +14,14 @@ fn create_test_config(port: u16) -> AppConfig {
         device_id: format!("device-{}", port),
         network: NetworkConfig {
             listen_port: port,
-            peer_list: vec![],
             connection_timeout: 5000,
             heartbeat_interval: 1000,
             max_connections: 10,
-            auto_discovery: false, // Disable for tests
-            discovery_port: port + 1000,
+            enable_mdns: false, // Disable for tests
+            mdns_discovery_interval: 30,
+            idle_connection_timeout: 300,
+            enable_quic: false,
+            quic_port: None,
         },
         clipboard: ClipboardConfig {
             sync_images: true,

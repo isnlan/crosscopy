@@ -6,7 +6,7 @@
 //! Run with: cargo run --example config_management
 
 use crosscopy::{
-    config::{AppConfig, ConfigManager, ClipboardConfig, NetworkConfig, SecurityConfig, LoggingConfig, PeerConfig},
+    config::{AppConfig, ConfigManager, ClipboardConfig, NetworkConfig, SecurityConfig, LoggingConfig},
     utils::logger,
 };
 use log::info;
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use tempfile::tempdir;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> crosscopy::Result<()> {
     // Initialize logging
     logger::init_logger("info")?;
     
@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("  Device Name: {}", custom_config.device_name);
     info!("  Listen Port: {}", custom_config.network.listen_port);
     info!("  Encryption: {}", custom_config.security.enable_encryption);
-    info!("  Peer Count: {}", custom_config.network.peer_list.len());
+    info!("  mDNS Discovery: {}", custom_config.network.enable_mdns);
 
     // Demonstrate saving custom configuration
     info!("\n--- Saving Custom Configuration ---");
@@ -162,27 +162,14 @@ fn create_custom_configuration() -> AppConfig {
         
         network: NetworkConfig {
             listen_port: 9876,
-            peer_list: vec![
-                PeerConfig {
-                    device_id: "office-pc".to_string(),
-                    name: "Office Computer".to_string(),
-                    address: "192.168.1.100".to_string(),
-                    port: 8888,
-                    enabled: true,
-                },
-                PeerConfig {
-                    device_id: "laptop".to_string(),
-                    name: "Personal Laptop".to_string(),
-                    address: "192.168.1.101".to_string(),
-                    port: 8888,
-                    enabled: false,
-                },
-            ],
             connection_timeout: 8000,
             heartbeat_interval: 3000,
             max_connections: 15,
-            auto_discovery: true,
-            discovery_port: 9875,
+            enable_mdns: true,           // Enable mDNS automatic peer discovery
+            mdns_discovery_interval: 30, // 30 seconds
+            idle_connection_timeout: 300, // 5 minutes
+            enable_quic: false,          // TCP only for this demo
+            quic_port: None,
         },
         
         clipboard: ClipboardConfig {
@@ -218,7 +205,7 @@ fn create_minimal_configuration() -> AppConfig {
     config.security.enable_encryption = false;
     config.clipboard.sync_images = false;
     config.clipboard.sync_files = false;
-    config.network.auto_discovery = false;
+    config.network.enable_mdns = false; // Disable automatic discovery for minimal config
     config
 }
 

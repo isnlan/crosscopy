@@ -7,7 +7,7 @@
 
 use crosscopy::{
     config::{
-        AppConfig, ClipboardConfig, LoggingConfig, NetworkConfig, PeerConfig, SecurityConfig,
+        AppConfig, ClipboardConfig, LoggingConfig, NetworkConfig, SecurityConfig,
     },
     utils::logger,
     CrossCopyApp,
@@ -17,7 +17,7 @@ use std::time::Duration;
 use tokio::signal;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> crosscopy::Result<()> {
     // Initialize logging with debug level
     logger::init_logger("debug")?;
     
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("  Listen Port: {}", config.network.listen_port);
     info!("  Max Content Size: {} bytes", config.clipboard.max_content_size);
     info!("  Encryption Enabled: {}", config.security.enable_encryption);
-    info!("  Peer Count: {}", config.network.peer_list.len());
+    info!("  mDNS Discovery Enabled: {}", config.network.enable_mdns);
 
     // Create and start the application
     let mut app = CrossCopyApp::new(config).await?;
@@ -71,27 +71,14 @@ fn create_custom_config() -> AppConfig {
         
         network: NetworkConfig {
             listen_port: 9999,
-            peer_list: vec![
-                PeerConfig {
-                    device_id: "peer-1".to_string(),
-                    name: "Office Computer".to_string(),
-                    address: "192.168.1.100".to_string(),
-                    port: 8888,
-                    enabled: true,
-                },
-                PeerConfig {
-                    device_id: "peer-2".to_string(),
-                    name: "Laptop".to_string(),
-                    address: "192.168.1.101".to_string(),
-                    port: 8888,
-                    enabled: false, // Disabled for this example
-                },
-            ],
             connection_timeout: 10000, // 10 seconds
             heartbeat_interval: 2000,  // 2 seconds
             max_connections: 20,
-            auto_discovery: true,
-            discovery_port: 9998,
+            enable_mdns: true,         // Enable mDNS automatic peer discovery
+            mdns_discovery_interval: 30, // 30 seconds
+            idle_connection_timeout: 300, // 5 minutes
+            enable_quic: false,        // TCP only for this example
+            quic_port: None,
         },
         
         clipboard: ClipboardConfig {

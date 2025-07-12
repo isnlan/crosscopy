@@ -15,7 +15,7 @@ use std::time::Duration;
 use tokio::signal;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> crosscopy::Result<()> {
     // Initialize logging
     logger::init_logger("info")?;
     

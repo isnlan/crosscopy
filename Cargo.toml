@@ -35,7 +35,9 @@ libp2p = { version = "0.53", features = [
     "mdns",
     "identify",
     "ping",
-    "macros"
+    "macros",
+    "tokio",
+    "request-response"
 ] }
 
 # Clipboard access

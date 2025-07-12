@@ -1,6 +1,6 @@
 //! Common test utilities
 
-use crosscopy::config::{AppConfig, ClipboardConfig, NetworkConfig, SecurityConfig, LoggingConfig, PeerConfig};
+use crosscopy::config::{AppConfig, ClipboardConfig, NetworkConfig, SecurityConfig, LoggingConfig};
 use std::sync::Once;
 use tempfile::TempDir;
 
@@ -24,12 +24,14 @@ pub fn create_test_config(port: u16) -> AppConfig {
         device_id: format!("device-{}", port),
         network: NetworkConfig {
             listen_port: port,
-            peer_list: vec![],
             connection_timeout: 1000, // Shorter for tests
             heartbeat_interval: 500,
             max_connections: 5,
-            auto_discovery: false, // Disable for tests
-            discovery_port: port + 1000,
+            enable_mdns: false,       // Disable for controlled tests
+            mdns_discovery_interval: 30,
+            idle_connection_timeout: 60, // Shorter for tests
+            enable_quic: false,       // TCP only for tests
+            quic_port: None,
         },
         clipboard: ClipboardConfig {
             sync_images: false, // Disable for simpler tests
@@ -64,21 +66,14 @@ pub fn create_secure_test_config(port: u16) -> AppConfig {
     config
 }
 
-/// Create a test configuration with peer connections
-pub fn create_networked_test_config(port: u16, peers: Vec<(String, String, u16)>) -> AppConfig {
+/// Create a test configuration with mDNS discovery enabled
+pub fn create_networked_test_config(port: u16, _peers: Vec<(String, String, u16)>) -> AppConfig {
     let mut config = create_test_config(port);
-    
-    config.network.peer_list = peers
-        .into_iter()
-        .map(|(device_id, address, port)| PeerConfig {
-            device_id,
-            name: format!("peer-{}", port),
-            address,
-            port,
-            enabled: true,
-        })
-        .collect();
-    
+
+    // Enable mDNS discovery for networked tests
+    config.network.enable_mdns = true;
+    config.network.mdns_discovery_interval = 5; // Faster discovery for tests
+
     config
 }
 
