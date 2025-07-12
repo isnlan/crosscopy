@@ -1,7 +1,3 @@
-以下是一个为你的 Rust 跨平台剪贴板同步工具设计的 `README.md` 示例，涵盖项目简介、功能特性、平台支持、依赖构建说明、配置方式和未来规划等内容。
-
----
-
 ````markdown
 # ✨ CrossPaste (Rust Edition)
 
