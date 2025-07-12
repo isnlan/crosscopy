@@ -65,6 +65,66 @@
 - 加密算法和安全规格
 - 性能指标和兼容性要求
 
+### 🎨 [UI 架构文档](ui-architecture.md)
+详细介绍 CrossCopy 的 Tauri + React UI 架构设计和实现。
+
+**主要内容：**
+- Tauri + React 混合架构
+- 系统托盘集成
+- 应用生命周期管理
+- 前后端通信机制
+- 性能优化策略
+
+### 🧩 [UI 组件设计](ui-components.md)
+完整的 React 组件设计文档，包含所有 UI 组件的设计和实现。
+
+**主要内容：**
+- 主要视图组件
+- 共享组件库
+- 组件通信模式
+- Tauri 集成示例
+- 组件最佳实践
+
+### 🎭 [主题与样式](theming.md)
+详细的主题系统设计和样式实现指南。
+
+**主要内容：**
+- 主题系统架构
+- 设计令牌和颜色系统
+- React 主题管理
+- Tauri 后端集成
+- 自定义主题创建
+
+### 🔗 [前后端通信](frontend-backend-communication.md)
+Tauri 前后端通信机制的详细说明和最佳实践。
+
+**主要内容：**
+- 通信架构设计
+- 核心 API 定义
+- React 集成方案
+- 错误处理策略
+- 性能优化技巧
+
+### 🖥️ [系统托盘实现](tray-implementation.md)
+系统托盘功能的详细实现文档。
+
+**主要内容：**
+- 托盘功能设计
+- 跨平台实现
+- 事件处理机制
+- 状态管理
+- 用户体验优化
+
+### 📊 [UI 技术总览](ui-technical-overview.md)
+CrossCopy UI 技术栈的完整总览和技术决策说明。
+
+**主要内容：**
+- 技术栈选择
+- 架构优势分析
+- 核心功能模块
+- 性能优化策略
+- 未来发展规划
+
 ## 🚀 快速导航
 
 ### 新用户
@@ -78,6 +138,14 @@
 1. [开发指南 - 开发环境搭建](development-guide.md#1-开发环境搭建)
 2. [架构设计文档](architecture.md)
 3. [API 参考文档](api-reference.md)
+
+### UI 开发者
+如果您专注于 UI 界面开发，建议阅读：
+1. [UI 技术总览](ui-technical-overview.md)
+2. [UI 架构文档](ui-architecture.md)
+3. [UI 组件设计](ui-components.md)
+4. [前后端通信](frontend-backend-communication.md)
+5. [主题与样式](theming.md)
 
 ### 系统管理员
 如果您需要在企业环境中部署 CrossCopy，建议阅读：
