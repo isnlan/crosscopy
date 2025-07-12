@@ -1,7 +1,7 @@
 //! Network communication module
 //!
 //! This module handles all network communication between devices, including
-//! WebSocket connections, message protocols, and connection management.
+//! libp2p connections, mDNS discovery, message protocols, and connection management.
 
 pub mod connection;
 pub mod manager;
@@ -31,11 +31,20 @@ pub enum NetworkError {
     #[error("Authentication failed")]
     AuthenticationFailed,
 
+    #[error("Peer not found: {0}")]
+    PeerNotFound(String),
+
+    #[error("mDNS discovery failed: {0}")]
+    MdnsDiscoveryFailed(String),
+
+    #[error("libp2p error: {0}")]
+    Libp2p(String),
+
+    #[error("Transport error: {0}")]
+    Transport(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-
-    #[error("WebSocket error: {0}")]
-    WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
 
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),

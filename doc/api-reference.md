@@ -106,11 +106,17 @@ impl NetworkManager {
     /// 停止网络服务
     pub async fn stop(&mut self) -> Result<(), NetworkError>;
     
-    /// 连接到对等设备
-    pub async fn connect_to_peer(&mut self, address: &str) -> Result<(), NetworkError>;
-    
+    /// 启动 mDNS 发现服务
+    pub async fn start_mdns_discovery(&mut self) -> Result<(), NetworkError>;
+
+    /// 停止 mDNS 发现服务
+    pub async fn stop_mdns_discovery(&mut self) -> Result<(), NetworkError>;
+
+    /// 连接到指定的对等节点
+    pub async fn connect_to_peer(&mut self, peer_id: &str) -> Result<(), NetworkError>;
+
     /// 断开与对等设备的连接
-    pub async fn disconnect_from_peer(&mut self, device_id: &str) -> Result<(), NetworkError>;
+    pub async fn disconnect_from_peer(&mut self, peer_id: &str) -> Result<(), NetworkError>;
     
     /// 发送消息到指定设备
     pub async fn send_message(&mut self, device_id: &str, message: Message) -> Result<(), NetworkError>;
@@ -259,11 +265,29 @@ pub struct AppConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkConfig {
+    /// libp2p 监听端口
     pub listen_port: u16,
-    pub peer_list: Vec<String>,
+
+    /// 连接超时时间（毫秒）
     pub connection_timeout: u64,
+
+    /// 心跳间隔（毫秒）
     pub heartbeat_interval: u64,
+
+    /// 最大连接数
     pub max_connections: usize,
+
+    /// 启用 mDNS 自动发现
+    pub enable_mdns: bool,
+
+    /// mDNS 发现间隔（秒）
+    pub mdns_discovery_interval: u64,
+
+    /// 空闲连接超时（秒）
+    pub idle_connection_timeout: u64,
+
+    /// 启用 QUIC 传输
+    pub enable_quic: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

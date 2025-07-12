@@ -1,10 +1,10 @@
 //! Network connection management
 
 use crate::network::{Message, Result};
+use libp2p::{PeerId, Multiaddr};
 use log::{debug, error, info};
 use std::fmt;
-use tokio::net::TcpStream;
-use tokio_tungstenite::{WebSocketStream, MaybeTlsStream};
+use tokio::sync::mpsc;
 
 /// Connection state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,12 +28,14 @@ impl fmt::Display for ConnectionState {
     }
 }
 
-/// Network connection wrapper
+/// Network connection wrapper for libp2p
 pub struct Connection {
     pub id: String,
+    pub peer_id: Option<PeerId>,
     pub device_id: Option<String>,
     pub state: ConnectionState,
-    pub websocket: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    pub address: Option<Multiaddr>,
+    pub message_sender: Option<mpsc::UnboundedSender<Message>>,
     pub last_heartbeat: Option<std::time::Instant>,
 }
 
@@ -42,9 +44,24 @@ impl Connection {
     pub fn new(id: String) -> Self {
         Self {
             id,
+            peer_id: None,
             device_id: None,
             state: ConnectionState::Disconnected,
-            websocket: None,
+            address: None,
+            message_sender: None,
+            last_heartbeat: None,
+        }
+    }
+
+    /// Create a new connection with peer ID
+    pub fn new_with_peer(id: String, peer_id: PeerId, address: Multiaddr) -> Self {
+        Self {
+            id,
+            peer_id: Some(peer_id),
+            device_id: None,
+            state: ConnectionState::Connecting,
+            address: Some(address),
+            message_sender: None,
             last_heartbeat: None,
         }
     }
@@ -60,72 +77,37 @@ impl Connection {
         matches!(self.state, ConnectionState::Connected | ConnectionState::Authenticated)
     }
 
+    /// Set message sender for this connection
+    pub fn set_message_sender(&mut self, sender: mpsc::UnboundedSender<Message>) {
+        self.message_sender = Some(sender);
+    }
+
     /// Send a message through this connection
     pub async fn send_message(&mut self, message: Message) -> Result<()> {
-        use futures_util::SinkExt;
-        use tokio_tungstenite::tungstenite::Message as WsMessage;
-
-        if let Some(ref mut ws) = self.websocket {
+        if let Some(ref sender) = self.message_sender {
             debug!("Sending message through connection {}: {:?}", self.id, message.header.message_type);
 
-            // Serialize message to JSON
-            let serialized = serde_json::to_vec(&message)
-                .map_err(|e| crate::network::NetworkError::Serialization(e))?;
-
-            // Send as binary WebSocket message
-            ws.send(WsMessage::Binary(serialized)).await
-                .map_err(|e| crate::network::NetworkError::WebSocket(e))?;
+            sender.send(message)
+                .map_err(|_| crate::network::NetworkError::ConnectionFailed(
+                    "Failed to send message through channel".to_string()
+                ))?;
 
             Ok(())
         } else {
             Err(crate::network::NetworkError::ConnectionFailed(
-                "No active WebSocket connection".to_string()
+                "No active message sender".to_string()
             ))
         }
     }
 
-    /// Receive a message from this connection
-    pub async fn receive_message(&mut self) -> Result<Option<Message>> {
-        use futures_util::StreamExt;
-        use tokio_tungstenite::tungstenite::Message as WsMessage;
+    /// Get peer ID if available
+    pub fn peer_id(&self) -> Option<&PeerId> {
+        self.peer_id.as_ref()
+    }
 
-        if let Some(ref mut ws) = self.websocket {
-            match ws.next().await {
-                Some(Ok(WsMessage::Binary(data))) => {
-                    debug!("Received binary message on connection {}", self.id);
-
-                    // Deserialize message from JSON
-                    let message: Message = serde_json::from_slice(&data)
-                        .map_err(|e| crate::network::NetworkError::Serialization(e))?;
-
-                    Ok(Some(message))
-                }
-                Some(Ok(WsMessage::Text(text))) => {
-                    debug!("Received text message on connection {}: {}", self.id, text);
-                    Ok(None) // We don't handle text messages as clipboard data
-                }
-                Some(Ok(WsMessage::Close(_))) => {
-                    debug!("Connection {} closed by peer", self.id);
-                    self.set_state(ConnectionState::Disconnected);
-                    Ok(None)
-                }
-                Some(Err(e)) => {
-                    error!("WebSocket error on connection {}: {}", self.id, e);
-                    self.set_state(ConnectionState::Error);
-                    Err(crate::network::NetworkError::WebSocket(e))
-                }
-                None => {
-                    debug!("WebSocket stream ended for connection {}", self.id);
-                    self.set_state(ConnectionState::Disconnected);
-                    Ok(None)
-                }
-                _ => Ok(None),
-            }
-        } else {
-            Err(crate::network::NetworkError::ConnectionFailed(
-                "No active WebSocket connection".to_string()
-            ))
-        }
+    /// Get connection address if available
+    pub fn address(&self) -> Option<&Multiaddr> {
+        self.address.as_ref()
     }
 
     /// Update last heartbeat timestamp

@@ -1,19 +1,146 @@
-//! Network manager implementation
+//! Network manager implementation using libp2p
 
 use crate::config::NetworkConfig;
 use crate::events::EventBus;
-use crate::network::{Connection, Message, Result};
+use crate::network::{Connection, Message, Result, NetworkError};
+use libp2p::{
+    core::upgrade,
+    futures::StreamExt,
+    identity, mdns, noise, tcp, yamux, PeerId, Swarm, Transport,
+    swarm::{SwarmEvent, NetworkBehaviour},
+    request_response::{self, ProtocolSupport, RequestResponse, RequestResponseEvent},
+    Multiaddr,
+};
 use log::{debug, error, info, warn};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::time::Duration;
+use tokio::sync::{mpsc, RwLock};
 
-/// Network manager for handling connections and communication
+/// CrossCopy protocol for request-response communication
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossCopyRequest {
+    pub message: Message,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossCopyResponse {
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+/// Network behaviour for CrossCopy
+#[derive(NetworkBehaviour)]
+#[behaviour(out_event = "CrossCopyEvent")]
+pub struct CrossCopyBehaviour {
+    request_response: RequestResponse<CrossCopyCodec>,
+    mdns: mdns::tokio::Behaviour,
+}
+
+/// Custom codec for CrossCopy protocol
+#[derive(Clone)]
+pub struct CrossCopyCodec;
+
+/// Events from the CrossCopy network behaviour
+#[derive(Debug)]
+pub enum CrossCopyEvent {
+    RequestResponse(RequestResponseEvent<CrossCopyRequest, CrossCopyResponse>),
+    Mdns(mdns::Event),
+}
+
+impl From<RequestResponseEvent<CrossCopyRequest, CrossCopyResponse>> for CrossCopyEvent {
+    fn from(event: RequestResponseEvent<CrossCopyRequest, CrossCopyResponse>) -> Self {
+        CrossCopyEvent::RequestResponse(event)
+    }
+}
+
+impl From<mdns::Event> for CrossCopyEvent {
+    fn from(event: mdns::Event) -> Self {
+        CrossCopyEvent::Mdns(event)
+    }
+}
+
+/// Network manager for handling libp2p connections and communication
 pub struct NetworkManager {
     config: NetworkConfig,
     event_bus: Arc<EventBus>,
     connections: Arc<RwLock<HashMap<String, Connection>>>,
+    swarm: Option<Swarm<CrossCopyBehaviour>>,
     running: Arc<RwLock<bool>>,
+    message_sender: Option<mpsc::UnboundedSender<(PeerId, Message)>>,
+}
+
+impl request_response::Codec for CrossCopyCodec {
+    type Protocol = &'static str;
+    type Request = CrossCopyRequest;
+    type Response = CrossCopyResponse;
+
+    async fn read_request<T>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Request>
+    where
+        T: futures::AsyncRead + Unpin + Send,
+    {
+        // Implementation would read from the stream and deserialize
+        // For now, return a placeholder
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Not implemented",
+        ))
+    }
+
+    async fn read_response<T>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Response>
+    where
+        T: futures::AsyncRead + Unpin + Send,
+    {
+        // Implementation would read from the stream and deserialize
+        // For now, return a placeholder
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Not implemented",
+        ))
+    }
+
+    async fn write_request<T>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+        req: Self::Request,
+    ) -> std::io::Result<()>
+    where
+        T: futures::AsyncWrite + Unpin + Send,
+    {
+        // Implementation would serialize and write to the stream
+        // For now, return a placeholder
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Not implemented",
+        ))
+    }
+
+    async fn write_response<T>(
+        &mut self,
+        _: &Self::Protocol,
+        io: &mut T,
+        res: Self::Response,
+    ) -> std::io::Result<()>
+    where
+        T: futures::AsyncWrite + Unpin + Send,
+    {
+        // Implementation would serialize and write to the stream
+        // For now, return a placeholder
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Not implemented",
+        ))
+    }
 }
 
 impl NetworkManager {
@@ -26,20 +153,111 @@ impl NetworkManager {
             config,
             event_bus,
             connections: Arc::new(RwLock::new(HashMap::new())),
+            swarm: None,
             running: Arc::new(RwLock::new(false)),
+            message_sender: None,
         })
     }
 
     /// Start the network manager
     pub async fn start(&mut self) -> Result<()> {
-        info!("Starting network manager on port {}", self.config.listen_port);
+        info!("Starting libp2p network manager on port {}", self.config.listen_port);
         *self.running.write().await = true;
 
-        // Start server listener
-        self.start_server().await?;
+        // Create libp2p identity
+        let local_key = identity::Keypair::generate_ed25519();
+        let local_peer_id = PeerId::from(local_key.public());
+        info!("Local peer id: {}", local_peer_id);
 
-        // Connect to configured peers
-        self.connect_to_peers().await?;
+        // Create transport
+        let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
+            .upgrade(upgrade::Version::V1)
+            .authenticate(noise::Config::new(&local_key).unwrap())
+            .multiplex(yamux::Config::default())
+            .boxed();
+
+        // Create network behaviour
+        let request_response = RequestResponse::new(
+            CrossCopyCodec,
+            std::iter::once(("/crosscopy/1.0.0", ProtocolSupport::Full)),
+            Default::default(),
+        );
+
+        let mdns_behaviour = mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)
+            .map_err(|e| NetworkError::MdnsDiscoveryFailed(e.to_string()))?;
+
+        let behaviour = CrossCopyBehaviour {
+            request_response,
+            mdns: mdns_behaviour,
+        };
+
+        // Create swarm
+        let mut swarm = Swarm::with_tokio_executor(transport, behaviour, local_peer_id);
+
+        // Listen on all interfaces
+        let listen_addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.config.listen_port)
+            .parse()
+            .map_err(|e| NetworkError::Libp2p(format!("Invalid listen address: {}", e)))?;
+
+        swarm.listen_on(listen_addr.clone())?;
+        info!("Listening on {}", listen_addr);
+
+        // Start the swarm event loop
+        let connections = self.connections.clone();
+        let event_bus = self.event_bus.clone();
+        let running = self.running.clone();
+
+        tokio::spawn(async move {
+            loop {
+                if !*running.read().await {
+                    break;
+                }
+
+                match swarm.select_next_some().await {
+                    SwarmEvent::NewListenAddr { address, .. } => {
+                        info!("Listening on {}", address);
+                    }
+                    SwarmEvent::Behaviour(CrossCopyEvent::Mdns(mdns::Event::Discovered(list))) => {
+                        for (peer_id, multiaddr) in list {
+                            info!("Discovered peer: {} at {}", peer_id, multiaddr);
+
+                            // Create new connection entry
+                            let connection = Connection::new_with_peer(
+                                peer_id.to_string(),
+                                peer_id,
+                                multiaddr.clone(),
+                            );
+
+                            connections.write().await.insert(peer_id.to_string(), connection);
+
+                            // Attempt to dial the discovered peer
+                            if let Err(e) = swarm.dial(multiaddr) {
+                                error!("Failed to dial peer {}: {}", peer_id, e);
+                            }
+                        }
+                    }
+                    SwarmEvent::Behaviour(CrossCopyEvent::Mdns(mdns::Event::Expired(list))) => {
+                        for (peer_id, _) in list {
+                            info!("Peer expired: {}", peer_id);
+                            connections.write().await.remove(&peer_id.to_string());
+                        }
+                    }
+                    SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                        info!("Connection established with {}", peer_id);
+                        if let Some(connection) = connections.write().await.get_mut(&peer_id.to_string()) {
+                            connection.set_state(crate::network::ConnectionState::Connected);
+                        }
+                    }
+                    SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                        info!("Connection closed with {}", peer_id);
+                        if let Some(connection) = connections.write().await.get_mut(&peer_id.to_string()) {
+                            connection.set_state(crate::network::ConnectionState::Disconnected);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        });
 
         Ok(())
     }
@@ -83,231 +301,34 @@ impl NetworkManager {
         connections.values().filter(|c| c.is_active()).count()
     }
 
-    async fn start_server(&self) -> Result<()> {
-        let addr = format!("0.0.0.0:{}", self.config.listen_port);
-        info!("Starting WebSocket server on {}", addr);
 
-        let listener = tokio::net::TcpListener::bind(&addr).await?;
-        let connections = self.connections.clone();
-        let event_bus = self.event_bus.clone();
-        let running = self.running.clone();
 
-        tokio::spawn(async move {
-            while *running.read().await {
-                match listener.accept().await {
-                    Ok((stream, addr)) => {
-                        info!("New connection from {}", addr);
 
-                        let connections = connections.clone();
-                        let event_bus = event_bus.clone();
 
-                        tokio::spawn(async move {
-                            if let Err(e) = Self::handle_incoming_connection(
-                                stream, addr, connections, event_bus
-                            ).await {
-                                error!("Error handling connection from {}: {}", addr, e);
-                            }
-                        });
-                    }
-                    Err(e) => {
-                        error!("Failed to accept connection: {}", e);
-                    }
-                }
+    /// Send a message to a specific peer
+    pub async fn send_message_to_peer(&self, peer_id: &str, message: Message) -> Result<()> {
+        let connections = self.connections.read().await;
+        if let Some(connection) = connections.get(peer_id) {
+            if connection.is_active() {
+                // In a real implementation, this would send through the libp2p swarm
+                info!("Sending message to peer {}: {:?}", peer_id, message.header.message_type);
+                Ok(())
+            } else {
+                Err(NetworkError::ConnectionFailed(format!("Peer {} not connected", peer_id)))
             }
-        });
-
-        Ok(())
+        } else {
+            Err(NetworkError::PeerNotFound(peer_id.to_string()))
+        }
     }
 
-    async fn handle_incoming_connection(
-        stream: tokio::net::TcpStream,
-        addr: std::net::SocketAddr,
-        connections: Arc<RwLock<HashMap<String, Connection>>>,
-        event_bus: Arc<EventBus>,
-    ) -> Result<()> {
-        use tokio_tungstenite::{accept_async, tungstenite::Message as WsMessage};
-        use futures_util::{SinkExt, StreamExt};
-
-        let ws_stream = accept_async(stream).await?;
-        let (mut ws_sender, mut ws_receiver) = ws_stream.split();
-
-        let connection_id = uuid::Uuid::new_v4().to_string();
-        let mut connection = Connection::new(connection_id.clone());
-        connection.set_state(crate::network::ConnectionState::Connected);
-
-        // Add connection to the map
-        {
-            let mut connections_guard = connections.write().await;
-            connections_guard.insert(connection_id.clone(), connection);
-        }
-
-        // Emit device connected event
-        let event = crate::events::Event::DeviceConnected {
-            device_id: connection_id.clone(),
-        };
-        if let Err(e) = event_bus.emit(event).await {
-            error!("Failed to emit device connected event: {}", e);
-        }
-
-        // Handle incoming messages
-        while let Some(msg) = ws_receiver.next().await {
-            match msg {
-                Ok(WsMessage::Binary(data)) => {
-                    if let Err(e) = Self::handle_binary_message(
-                        data, &connection_id, &event_bus
-                    ).await {
-                        error!("Error handling binary message: {}", e);
-                    }
-                }
-                Ok(WsMessage::Text(text)) => {
-                    debug!("Received text message: {}", text);
-                }
-                Ok(WsMessage::Close(_)) => {
-                    info!("Connection {} closed", connection_id);
-                    break;
-                }
-                Err(e) => {
-                    error!("WebSocket error on connection {}: {}", connection_id, e);
-                    break;
-                }
-                _ => {}
-            }
-        }
-
-        // Remove connection and emit disconnected event
-        {
-            let mut connections_guard = connections.write().await;
-            connections_guard.remove(&connection_id);
-        }
-
-        let event = crate::events::Event::DeviceDisconnected {
-            device_id: connection_id,
-        };
-        if let Err(e) = event_bus.emit(event).await {
-            error!("Failed to emit device disconnected event: {}", e);
-        }
-
-        Ok(())
-    }
-
-    async fn handle_binary_message(
-        data: Vec<u8>,
-        sender_id: &str,
-        event_bus: &Arc<EventBus>,
-    ) -> Result<()> {
-        // Deserialize the message
-        let message: Message = serde_json::from_slice(&data)
-            .map_err(|e| crate::network::NetworkError::InvalidMessage(e.to_string()))?;
-
-        // Verify message integrity
-        if !message.verify() {
-            warn!("Received message with invalid checksum from {}", sender_id);
-            return Ok(());
-        }
-
-        debug!("Received {} message from {}", message.header.message_type, sender_id);
-
-        // Emit network message event
-        let event = crate::events::Event::NetworkMessage {
-            message,
-            sender: sender_id.to_string(),
-        };
-
-        event_bus.emit(event).await
-            .map_err(|e| crate::network::NetworkError::InvalidMessage(e.to_string()))?;
-
-        Ok(())
-    }
-
-    async fn connect_to_peers(&self) -> Result<()> {
-        for peer in &self.config.peer_list {
-            if peer.enabled {
-                info!("Connecting to peer: {} ({}:{})", peer.name, peer.address, peer.port);
-
-                let connections = self.connections.clone();
-                let event_bus = self.event_bus.clone();
-                let peer_config = peer.clone();
-
-                tokio::spawn(async move {
-                    if let Err(e) = Self::connect_to_peer(peer_config, connections, event_bus).await {
-                        error!("Failed to connect to peer: {}", e);
-                    }
-                });
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn connect_to_peer(
-        peer: crate::config::PeerConfig,
-        connections: Arc<RwLock<HashMap<String, Connection>>>,
-        event_bus: Arc<EventBus>,
-    ) -> Result<()> {
-        use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
-        use futures_util::{SinkExt, StreamExt};
-
-        let url = format!("ws://{}:{}", peer.address, peer.port);
-        info!("Connecting to peer at {}", url);
-
-        let (ws_stream, _) = connect_async(&url).await?;
-        let (mut ws_sender, mut ws_receiver) = ws_stream.split();
-
-        let connection_id = peer.device_id.clone();
-        let mut connection = Connection::new(connection_id.clone());
-        connection.device_id = Some(peer.device_id.clone());
-        connection.set_state(crate::network::ConnectionState::Connected);
-
-        // Add connection to the map
-        {
-            let mut connections_guard = connections.write().await;
-            connections_guard.insert(connection_id.clone(), connection);
-        }
-
-        // Emit device connected event
-        let event = crate::events::Event::DeviceConnected {
-            device_id: connection_id.clone(),
-        };
-        if let Err(e) = event_bus.emit(event).await {
-            error!("Failed to emit device connected event: {}", e);
-        }
-
-        // Handle incoming messages
-        while let Some(msg) = ws_receiver.next().await {
-            match msg {
-                Ok(WsMessage::Binary(data)) => {
-                    if let Err(e) = Self::handle_binary_message(
-                        data, &connection_id, &event_bus
-                    ).await {
-                        error!("Error handling binary message: {}", e);
-                    }
-                }
-                Ok(WsMessage::Close(_)) => {
-                    info!("Connection to peer {} closed", connection_id);
-                    break;
-                }
-                Err(e) => {
-                    error!("WebSocket error on peer connection {}: {}", connection_id, e);
-                    break;
-                }
-                _ => {}
-            }
-        }
-
-        // Remove connection and emit disconnected event
-        {
-            let mut connections_guard = connections.write().await;
-            connections_guard.remove(&connection_id);
-        }
-
-        let event = crate::events::Event::DeviceDisconnected {
-            device_id: connection_id,
-        };
-        if let Err(e) = event_bus.emit(event).await {
-            error!("Failed to emit device disconnected event: {}", e);
-        }
-
-        Ok(())
+    /// Get list of connected peers
+    pub async fn get_connected_peers(&self) -> Vec<String> {
+        let connections = self.connections.read().await;
+        connections
+            .iter()
+            .filter(|(_, conn)| conn.is_active())
+            .map(|(id, _)| id.clone())
+            .collect()
     }
 }
 

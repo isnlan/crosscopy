@@ -62,9 +62,6 @@ pub struct NetworkConfig {
     /// Port to listen on for incoming connections
     pub listen_port: u16,
 
-    /// List of peer devices to connect to
-    pub peer_list: Vec<PeerConfig>,
-
     /// Connection timeout in milliseconds
     pub connection_timeout: u64,
 
@@ -74,31 +71,23 @@ pub struct NetworkConfig {
     /// Maximum number of concurrent connections
     pub max_connections: usize,
 
-    /// Enable automatic peer discovery
-    pub auto_discovery: bool,
+    /// Enable mDNS automatic peer discovery
+    pub enable_mdns: bool,
 
-    /// Discovery broadcast port
-    pub discovery_port: u16,
+    /// mDNS discovery interval in seconds
+    pub mdns_discovery_interval: u64,
+
+    /// Idle connection timeout in seconds
+    pub idle_connection_timeout: u64,
+
+    /// Enable QUIC transport (in addition to TCP)
+    pub enable_quic: bool,
+
+    /// QUIC port (if different from listen_port)
+    pub quic_port: Option<u16>,
 }
 
-/// Peer device configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PeerConfig {
-    /// Peer device ID
-    pub device_id: String,
 
-    /// Peer device name
-    pub name: String,
-
-    /// Peer IP address or hostname
-    pub address: String,
-
-    /// Peer port
-    pub port: u16,
-
-    /// Whether this peer is enabled
-    pub enabled: bool,
-}
 
 /// Clipboard configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,12 +166,14 @@ impl Default for NetworkConfig {
     fn default() -> Self {
         Self {
             listen_port: 8888,
-            peer_list: Vec::new(),
-            connection_timeout: 5000,
-            heartbeat_interval: 1000,
+            connection_timeout: 10000,  // 10 seconds
+            heartbeat_interval: 30000,  // 30 seconds
             max_connections: 10,
-            auto_discovery: true,
-            discovery_port: 8889,
+            enable_mdns: true,
+            mdns_discovery_interval: 30,  // 30 seconds
+            idle_connection_timeout: 300,  // 5 minutes
+            enable_quic: false,  // TCP only by default
+            quic_port: None,
         }
     }
 }

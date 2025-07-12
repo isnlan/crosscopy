@@ -24,8 +24,19 @@ path = "src/lib.rs"
 [dependencies]
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }
-tokio-tungstenite = "0.21"
-futures-util = "0.3"
+futures = "0.3"
+
+# libp2p networking
+libp2p = { version = "0.53", features = [
+    "tcp",
+    "quic",
+    "noise",
+    "yamux",
+    "mdns",
+    "identify",
+    "ping",
+    "macros"
+] }
 
 # Clipboard access
 arboard = "3.3"
@@ -93,6 +104,10 @@ harness = false
 [[bench]]
 name = "network_bench"
 harness = false
+
+[[example]]
+name = "libp2p_network_demo"
+path = "examples/libp2p_network_demo.rs"
 
 [features]
 default = ["encryption", "compression"]
