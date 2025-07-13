@@ -80,8 +80,8 @@ winapi = { version = "0.3", features = ["winuser", "winbase"] }
 cocoa = "0.25"
 objc = "0.2"
 
-[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
-x11 = { version = "2.21", features = ["xlib"] }
+# Note: x11 dependency removed as arboard handles clipboard access on Linux
+# and the system is using Wayland anyway
 
 [dev-dependencies]
 tokio-test = "0.4"
