@@ -1,6 +1,6 @@
 //! Clipboard monitoring implementation
 
-use crate::clipboard::{ClipboardContent, ContentType, Result};
+use crate::clipboard::{ClipboardContent, Result};
 use crate::config::ClipboardConfig;
 use crate::events::{Event, EventBus};
 use arboard::Clipboard;
@@ -15,7 +15,7 @@ pub struct ClipboardMonitor {
     clipboard: Arc<RwLock<Clipboard>>,
     config: ClipboardConfig,
     event_bus: Arc<EventBus>,
-    last_content: Arc<RwLock<Option<String>>>,
+    last_content_hash: Arc<RwLock<Option<String>>>,
     last_update: Arc<RwLock<Instant>>,
     running: Arc<RwLock<bool>>,
     device_system: String,
@@ -36,7 +36,7 @@ impl ClipboardMonitor {
             clipboard: Arc::new(RwLock::new(clipboard)),
             config,
             event_bus,
-            last_content: Arc::new(RwLock::new(None)),
+            last_content_hash: Arc::new(RwLock::new(None)),
             last_update: Arc::new(RwLock::new(Instant::now())),
             running: Arc::new(RwLock::new(false)),
             device_system: system_info.device_system,
@@ -51,7 +51,7 @@ impl ClipboardMonitor {
         let clipboard = self.clipboard.clone();
         let config = self.config.clone();
         let event_bus = self.event_bus.clone();
-        let last_content = self.last_content.clone();
+        let last_content_hash = self.last_content_hash.clone();
         let last_update = self.last_update.clone();
         let running = self.running.clone();
         let device_system = self.device_system.clone();
@@ -66,7 +66,7 @@ impl ClipboardMonitor {
                     &clipboard,
                     &config,
                     &event_bus,
-                    &last_content,
+                    &last_content_hash,
                     &last_update,
                     &device_system,
                 ).await {
@@ -97,8 +97,9 @@ impl ClipboardMonitor {
         clipboard.set_text(&text)
             .map_err(|e| crate::clipboard::ClipboardError::AccessFailed(e.to_string()))?;
 
-        // Update last content to prevent echo
-        *self.last_content.write().await = Some(text);
+        // Update last content hash to prevent echo
+        let content_hash = Self::calculate_content_hash(&text.as_bytes());
+        *self.last_content_hash.write().await = Some(content_hash);
         *self.last_update.write().await = Instant::now();
 
         Ok(())
@@ -108,7 +109,7 @@ impl ClipboardMonitor {
         clipboard: &Arc<RwLock<Clipboard>>,
         config: &ClipboardConfig,
         event_bus: &Arc<EventBus>,
-        last_content: &Arc<RwLock<Option<String>>>,
+        last_content_hash: &Arc<RwLock<Option<String>>>,
         last_update: &Arc<RwLock<Instant>>,
         device_system: &str,
     ) -> Result<()> {
@@ -147,19 +148,12 @@ impl ClipboardMonitor {
         };
 
         if let Some(content) = clipboard_content {
-            // Check if content has changed
+            // Check if content has changed by comparing content hashes
+            let current_hash = Self::calculate_content_hash(&content.data);
             let should_process = {
-                let last_content_guard = last_content.read().await;
-                match &*last_content_guard {
-                    Some(last) => {
-                        // For text content, compare the actual text
-                        if let Some(current_text) = content.as_text() {
-                            last != &current_text
-                        } else {
-                            // For non-text content, always process (could be improved with checksum comparison)
-                            true
-                        }
-                    }
+                let last_hash_guard = last_content_hash.read().await;
+                match &*last_hash_guard {
+                    Some(last_hash) => last_hash != &current_hash,
                     None => true,
                 }
             };
@@ -199,10 +193,8 @@ impl ClipboardMonitor {
                     error!("Failed to emit clipboard changed event: {}", e);
                 }
 
-                // Update last content and timestamp
-                if let Some(text) = final_content.as_text() {
-                    *last_content.write().await = Some(text);
-                }
+                // Update last content hash and timestamp
+                *last_content_hash.write().await = Some(current_hash);
                 *last_update.write().await = now;
             }
         }
@@ -215,6 +207,16 @@ impl ClipboardMonitor {
         // This is a simplified conversion - in a real implementation,
         // you would properly encode the image data to PNG or another format
         Ok(image.bytes.into_owned())
+    }
+
+    /// Calculate a hash of content data for comparison
+    fn calculate_content_hash(data: &[u8]) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        data.hash(&mut hasher);
+        format!("{:x}", hasher.finish())
     }
 }
 
