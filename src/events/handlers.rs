@@ -22,23 +22,23 @@ impl LoggingEventHandler {
 impl EventHandler for LoggingEventHandler {
     fn handle(&self, event: &Event) -> Result<()> {
         match event {
-            Event::ClipboardChanged { device_id, .. } => {
-                info!("Clipboard changed on device: {}", device_id);
+            Event::ClipboardChanged { device_system, .. } => {
+                info!("Clipboard changed on device: {}", device_system);
             }
             Event::NetworkMessage { sender, .. } => {
                 debug!("Network message received from: {}", sender);
             }
-            Event::DeviceConnected { device_id } => {
-                info!("Device connected: {}", device_id);
+            Event::DeviceConnected { device_system } => {
+                info!("Device connected: {}", device_system);
             }
-            Event::DeviceDisconnected { device_id } => {
-                warn!("Device disconnected: {}", device_id);
+            Event::DeviceDisconnected { device_system } => {
+                warn!("Device disconnected: {}", device_system);
             }
             Event::Error { error } => {
                 error!("Application error: {}", error);
             }
-            Event::Heartbeat { device_id, timestamp } => {
-                debug!("Heartbeat from device {} at {}", device_id, timestamp);
+            Event::Heartbeat { device_system, timestamp } => {
+                debug!("Heartbeat from device {} at {}", device_system, timestamp);
             }
             Event::ConfigChanged { section } => {
                 info!("Configuration changed in section: {}", section);
@@ -47,7 +47,7 @@ impl EventHandler for LoggingEventHandler {
                 info!("Shutdown event received");
             }
         }
-        
+
         Ok(())
     }
 

@@ -239,9 +239,9 @@ pub mod generators {
         (0..size).map(|i| (i % 256) as u8).collect()
     }
 
-    /// Generate random device ID
-    pub fn generate_device_id() -> String {
-        format!("test-device-{}", uuid::Uuid::new_v4())
+    /// Generate random device system info
+    pub fn generate_device_system() -> String {
+        format!("TestOS-{}", uuid::Uuid::new_v4())
     }
 }
 

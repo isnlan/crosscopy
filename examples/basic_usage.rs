@@ -26,7 +26,7 @@ async fn main() -> crosscopy::Result<()> {
     
     info!("Configuration:");
     info!("  Device Name: {}", config.device_name);
-    info!("  Device ID: {}", config.device_id);
+    info!("  Device System: {}", config.device_system);
     info!("  Listen Port: {}", config.network.listen_port);
     info!("  Encryption: {}", config.security.enable_encryption);
 

@@ -11,7 +11,7 @@ use tokio::time::sleep;
 fn create_test_config(port: u16) -> AppConfig {
     AppConfig {
         device_name: format!("test-device-{}", port),
-        device_id: format!("device-{}", port),
+        device_system: format!("TestOS-{}", port),
         network: NetworkConfig {
             listen_port: port,
             connection_timeout: 5000,
@@ -199,7 +199,7 @@ async fn test_config_manager_file_operations() {
     
     // Test reloading config
     let reloaded_config = manager.reload_config().await.unwrap();
-    assert_eq!(config.device_id, reloaded_config.device_id);
+    assert_eq!(config.device_system, reloaded_config.device_system);
 }
 
 #[tokio::test]

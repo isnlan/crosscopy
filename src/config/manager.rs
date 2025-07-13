@@ -200,7 +200,7 @@ mod tests {
         
         // Should create default config
         assert!(!config.device_name.is_empty());
-        assert!(!config.device_id.is_empty());
+        assert!(!config.device_system.is_empty());
     }
 
     #[tokio::test]

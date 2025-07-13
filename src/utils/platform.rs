@@ -52,12 +52,42 @@ pub fn get_system_info() -> SystemInfo {
     }
 }
 
+/// Get detailed system information including OS version
+pub fn get_detailed_system_info() -> DetailedSystemInfo {
+    let os_version = sysinfo::System::long_os_version()
+        .unwrap_or_else(|| format!("{} {}", std::env::consts::OS, "Unknown"));
+
+    let device_name = sysinfo::System::host_name()
+        .unwrap_or_else(|| hostname::get()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string());
+
+    DetailedSystemInfo {
+        device_name,
+        device_system: os_version,
+        hostname: sysinfo::System::host_name().unwrap_or_default(),
+        os: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+    }
+}
+
 /// System information
 #[derive(Debug, Clone)]
 pub struct SystemInfo {
     pub os: String,
     pub arch: String,
     pub hostname: String,
+}
+
+/// Detailed system information including OS version and device name
+#[derive(Debug, Clone)]
+pub struct DetailedSystemInfo {
+    pub device_name: String,
+    pub device_system: String,
+    pub hostname: String,
+    pub os: String,
+    pub arch: String,
 }
 
 /// Platform-specific clipboard access helpers

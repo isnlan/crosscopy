@@ -41,7 +41,7 @@ pub type Result<T> = std::result::Result<T, ConfigError>;
 pub struct AppConfig {
     /// Device identification
     pub device_name: String,
-    pub device_id: String,
+    pub device_system: String,
 
     /// Network configuration
     pub network: NetworkConfig,
@@ -151,9 +151,13 @@ pub struct LoggingConfig {
 
 impl Default for AppConfig {
     fn default() -> Self {
+        use crate::utils::platform::get_detailed_system_info;
+
+        let system_info = get_detailed_system_info();
+
         Self {
-            device_name: format!("CrossCopy-{}", uuid::Uuid::new_v4().to_string()[..8].to_uppercase()),
-            device_id: uuid::Uuid::new_v4().to_string(),
+            device_name: system_info.device_name,
+            device_system: system_info.device_system,
             network: NetworkConfig::default(),
             clipboard: ClipboardConfig::default(),
             security: SecurityConfig::default(),

@@ -18,7 +18,7 @@ pub struct ClipboardMonitor {
     last_content: Arc<RwLock<Option<String>>>,
     last_update: Arc<RwLock<Instant>>,
     running: Arc<RwLock<bool>>,
-    device_id: String,
+    device_system: String,
 }
 
 impl ClipboardMonitor {
@@ -30,6 +30,8 @@ impl ClipboardMonitor {
         let clipboard = Clipboard::new()
             .map_err(|e| crate::clipboard::ClipboardError::AccessFailed(e.to_string()))?;
 
+        let system_info = crate::utils::platform::get_detailed_system_info();
+
         Ok(Self {
             clipboard: Arc::new(RwLock::new(clipboard)),
             config,
@@ -37,7 +39,7 @@ impl ClipboardMonitor {
             last_content: Arc::new(RwLock::new(None)),
             last_update: Arc::new(RwLock::new(Instant::now())),
             running: Arc::new(RwLock::new(false)),
-            device_id: uuid::Uuid::new_v4().to_string(),
+            device_system: system_info.device_system,
         })
     }
 
@@ -52,7 +54,7 @@ impl ClipboardMonitor {
         let last_content = self.last_content.clone();
         let last_update = self.last_update.clone();
         let running = self.running.clone();
-        let device_id = self.device_id.clone();
+        let device_system = self.device_system.clone();
 
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_millis(100));
@@ -66,7 +68,7 @@ impl ClipboardMonitor {
                     &event_bus,
                     &last_content,
                     &last_update,
-                    &device_id,
+                    &device_system,
                 ).await {
                     error!("Error checking clipboard: {}", e);
                 }
@@ -108,7 +110,7 @@ impl ClipboardMonitor {
         event_bus: &Arc<EventBus>,
         last_content: &Arc<RwLock<Option<String>>>,
         last_update: &Arc<RwLock<Instant>>,
-        device_id: &str,
+        device_system: &str,
     ) -> Result<()> {
         let now = Instant::now();
 
@@ -126,7 +128,7 @@ impl ClipboardMonitor {
 
             // Try text first
             if let Ok(text) = clipboard.get_text() {
-                Some(ClipboardContent::new_text(text, device_id.to_string()))
+                Some(ClipboardContent::new_text(text, device_system.to_string()))
             } else if config.sync_images {
                 // Try image content
                 if let Ok(image) = clipboard.get_image() {
@@ -134,7 +136,7 @@ impl ClipboardMonitor {
                     Some(ClipboardContent::new_image(
                         image_data,
                         "image/png".to_string(),
-                        device_id.to_string(),
+                        device_system.to_string(),
                     ))
                 } else {
                     None
@@ -190,7 +192,7 @@ impl ClipboardMonitor {
                 // Emit clipboard changed event
                 let event = Event::ClipboardChanged {
                     content: final_content.clone(),
-                    device_id: device_id.to_string(),
+                    device_system: device_system.to_string(),
                 };
 
                 if let Err(e) = event_bus.emit(event).await {

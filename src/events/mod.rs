@@ -40,7 +40,7 @@ pub enum Event {
     /// Clipboard content changed
     ClipboardChanged {
         content: ClipboardContent,
-        device_id: String,
+        device_system: String,
     },
 
     /// Network message received
@@ -51,12 +51,12 @@ pub enum Event {
 
     /// Device connected
     DeviceConnected {
-        device_id: String,
+        device_system: String,
     },
 
     /// Device disconnected
     DeviceDisconnected {
-        device_id: String,
+        device_system: String,
     },
 
     /// Application error occurred
@@ -66,7 +66,7 @@ pub enum Event {
 
     /// Heartbeat event
     Heartbeat {
-        device_id: String,
+        device_system: String,
         timestamp: u64,
     },
 
@@ -82,23 +82,23 @@ pub enum Event {
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Event::ClipboardChanged { device_id, .. } => {
-                write!(f, "ClipboardChanged(device_id: {})", device_id)
+            Event::ClipboardChanged { device_system, .. } => {
+                write!(f, "ClipboardChanged(device_system: {})", device_system)
             }
             Event::NetworkMessage { sender, .. } => {
                 write!(f, "NetworkMessage(sender: {})", sender)
             }
-            Event::DeviceConnected { device_id } => {
-                write!(f, "DeviceConnected(device_id: {})", device_id)
+            Event::DeviceConnected { device_system } => {
+                write!(f, "DeviceConnected(device_system: {})", device_system)
             }
-            Event::DeviceDisconnected { device_id } => {
-                write!(f, "DeviceDisconnected(device_id: {})", device_id)
+            Event::DeviceDisconnected { device_system } => {
+                write!(f, "DeviceDisconnected(device_system: {})", device_system)
             }
             Event::Error { error } => {
                 write!(f, "Error({})", error)
             }
-            Event::Heartbeat { device_id, timestamp } => {
-                write!(f, "Heartbeat(device_id: {}, timestamp: {})", device_id, timestamp)
+            Event::Heartbeat { device_system, timestamp } => {
+                write!(f, "Heartbeat(device_system: {}, timestamp: {})", device_system, timestamp)
             }
             Event::ConfigChanged { section } => {
                 write!(f, "ConfigChanged(section: {})", section)

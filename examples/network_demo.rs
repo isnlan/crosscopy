@@ -84,12 +84,12 @@ async fn main() -> crosscopy::Result<()> {
 }
 
 fn create_network_config(port: u16) -> AppConfig {
-    let device_id = format!("device-{}", port);
+    let device_system = format!("TestOS-{}", port);
     let device_name = format!("CrossCopy-{}", port);
 
     AppConfig {
         device_name,
-        device_id,
+        device_system,
         network: NetworkConfig {
             listen_port: port,
             connection_timeout: 5000,

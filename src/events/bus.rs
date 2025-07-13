@@ -240,7 +240,7 @@ mod tests {
         // Emit events with different priorities
         bus.emit_with_priority(Event::Shutdown, EventPriority::Low).await.unwrap();
         bus.emit_with_priority(Event::Error { error: "test".to_string() }, EventPriority::Critical).await.unwrap();
-        bus.emit_with_priority(Event::Heartbeat { device_id: "test".to_string(), timestamp: 0 }, EventPriority::Normal).await.unwrap();
+        bus.emit_with_priority(Event::Heartbeat { device_system: "test".to_string(), timestamp: 0 }, EventPriority::Normal).await.unwrap();
 
         // Events should be polled in priority order (Critical, Normal, Low)
         let first = bus.poll_event().await.unwrap();

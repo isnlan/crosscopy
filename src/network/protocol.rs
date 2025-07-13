@@ -59,7 +59,7 @@ pub struct MessageHeader {
     pub message_type: MessageType,
     pub length: u32,
     pub timestamp: u64,
-    pub device_id: String,
+    pub device_system: String,
     pub message_id: String,
     pub checksum: String,
 }
@@ -69,7 +69,7 @@ impl Message {
     pub fn new(
         message_type: MessageType,
         payload: Vec<u8>,
-        device_id: String,
+        device_system: String,
     ) -> Self {
         let header = MessageHeader {
             magic: PROTOCOL_MAGIC,
@@ -77,7 +77,7 @@ impl Message {
             message_type,
             length: payload.len() as u32,
             timestamp: chrono::Utc::now().timestamp_millis() as u64,
-            device_id,
+            device_system,
             message_id: uuid::Uuid::new_v4().to_string(),
             checksum: Self::calculate_checksum(&payload),
         };

@@ -36,7 +36,7 @@ async fn main() -> crosscopy::Result<()> {
     let default_config = config_manager.load_config().await?;
     info!("✓ Default configuration loaded");
     info!("  Device Name: {}", default_config.device_name);
-    info!("  Device ID: {}", default_config.device_id);
+    info!("  Device System: {}", default_config.device_system);
     info!("  Listen Port: {}", default_config.network.listen_port);
     
     // Verify config file was created
@@ -158,7 +158,7 @@ async fn main() -> crosscopy::Result<()> {
 fn create_custom_configuration() -> AppConfig {
     AppConfig {
         device_name: "Demo-CrossCopy".to_string(),
-        device_id: "demo-device-12345".to_string(),
+        device_system: "DemoOS 1.0".to_string(),
         
         network: NetworkConfig {
             listen_port: 9876,

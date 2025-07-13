@@ -184,23 +184,23 @@ impl CrossCopyApp {
 
     async fn handle_event(&self, event: events::Event) -> Result<()> {
         match event {
-            events::Event::ClipboardChanged { content, device_id } => {
-                self.handle_clipboard_change(content, device_id).await?;
+            events::Event::ClipboardChanged { content, device_system } => {
+                self.handle_clipboard_change(content, device_system).await?;
             }
             events::Event::NetworkMessage { message, sender } => {
                 self.handle_network_message(message, sender).await?;
             }
-            events::Event::DeviceConnected { device_id } => {
-                info!("Device connected: {}", device_id);
+            events::Event::DeviceConnected { device_system } => {
+                info!("Device connected: {}", device_system);
             }
-            events::Event::DeviceDisconnected { device_id } => {
-                warn!("Device disconnected: {}", device_id);
+            events::Event::DeviceDisconnected { device_system } => {
+                warn!("Device disconnected: {}", device_system);
             }
             events::Event::Error { error } => {
                 error!("Application error: {}", error);
             }
-            events::Event::Heartbeat { device_id, timestamp } => {
-                info!("Heartbeat from device {} at {}", device_id, timestamp);
+            events::Event::Heartbeat { device_system, timestamp } => {
+                info!("Heartbeat from device {} at {}", device_system, timestamp);
             }
             events::Event::ConfigChanged { section } => {
                 info!("Configuration changed in section: {}", section);
@@ -217,9 +217,9 @@ impl CrossCopyApp {
     async fn handle_clipboard_change(
         &self,
         content: clipboard::ClipboardContent,
-        device_id: String,
+        device_system: String,
     ) -> Result<()> {
-        info!("Handling clipboard change from device: {}", device_id);
+        info!("Handling clipboard change from device: {}", device_system);
 
         // Encrypt content if encryption is enabled
         let encrypted_content = if let Some(encryption_service) = &self.encryption_service {
