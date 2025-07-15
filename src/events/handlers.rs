@@ -46,6 +46,18 @@ impl EventHandler for LoggingEventHandler {
             Event::Shutdown => {
                 info!("Shutdown event received");
             }
+            Event::PeerDiscovered { peer_id, address } => {
+                info!("Peer discovered: {} at {}", peer_id, address);
+            }
+            Event::PeerConnected { peer_id } => {
+                info!("Peer connected: {}", peer_id);
+            }
+            Event::PeerDisconnected { peer_id } => {
+                info!("Peer disconnected: {}", peer_id);
+            }
+            Event::ClipboardSynced { from_peer, content_size } => {
+                info!("Clipboard synced from {} ({} bytes)", from_peer, content_size);
+            }
         }
 
         Ok(())

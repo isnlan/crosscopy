@@ -59,6 +59,28 @@ pub enum Event {
         device_system: String,
     },
 
+    /// Peer discovered via mDNS
+    PeerDiscovered {
+        peer_id: String,
+        address: String,
+    },
+
+    /// Peer connected
+    PeerConnected {
+        peer_id: String,
+    },
+
+    /// Peer disconnected
+    PeerDisconnected {
+        peer_id: String,
+    },
+
+    /// Clipboard synced from peer
+    ClipboardSynced {
+        from_peer: String,
+        content_size: usize,
+    },
+
     /// Application error occurred
     Error {
         error: String,
@@ -105,6 +127,18 @@ impl fmt::Display for Event {
             }
             Event::Shutdown => {
                 write!(f, "Shutdown")
+            }
+            Event::PeerDiscovered { peer_id, address } => {
+                write!(f, "PeerDiscovered(peer_id: {}, address: {})", peer_id, address)
+            }
+            Event::PeerConnected { peer_id } => {
+                write!(f, "PeerConnected(peer_id: {})", peer_id)
+            }
+            Event::PeerDisconnected { peer_id } => {
+                write!(f, "PeerDisconnected(peer_id: {})", peer_id)
+            }
+            Event::ClipboardSynced { from_peer, content_size } => {
+                write!(f, "ClipboardSynced(from_peer: {}, content_size: {})", from_peer, content_size)
             }
         }
     }

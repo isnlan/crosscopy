@@ -3,6 +3,7 @@
 //! This module handles all network communication between devices, including
 //! libp2p connections, mDNS discovery, message protocols, and connection management.
 
+pub mod behaviour;
 pub mod connection;
 pub mod manager;
 pub mod protocol;

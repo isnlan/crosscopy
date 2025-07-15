@@ -39,6 +39,20 @@ pub struct Connection {
     pub last_heartbeat: Option<std::time::Instant>,
 }
 
+impl Clone for Connection {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            peer_id: self.peer_id,
+            device_id: self.device_id.clone(),
+            state: self.state,
+            address: self.address.clone(),
+            message_sender: self.message_sender.clone(), // UnboundedSender does implement Clone
+            last_heartbeat: self.last_heartbeat,
+        }
+    }
+}
+
 impl Connection {
     /// Create a new connection
     pub fn new(id: String) -> Self {

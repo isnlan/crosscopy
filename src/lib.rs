@@ -209,6 +209,18 @@ impl CrossCopyApp {
                 info!("Shutdown event received");
                 *self.running.write().await = false;
             }
+            events::Event::PeerDiscovered { peer_id, address } => {
+                info!("Peer discovered: {} at {}", peer_id, address);
+            }
+            events::Event::PeerConnected { peer_id } => {
+                info!("Peer connected: {}", peer_id);
+            }
+            events::Event::PeerDisconnected { peer_id } => {
+                info!("Peer disconnected: {}", peer_id);
+            }
+            events::Event::ClipboardSynced { from_peer, content_size } => {
+                info!("Clipboard synced from {} ({} bytes)", from_peer, content_size);
+            }
         }
 
         Ok(())
